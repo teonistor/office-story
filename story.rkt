@@ -1,6 +1,6 @@
 #lang racket
 
-(struct game-state (inventory room-contents room-descriptions room-doors location missions))
+(struct game-state (inventory room-contents room-doors location misc))
 ;(struct room (description doors fixed-objects))
 
 (define (inventory-remove inventory object)
@@ -29,13 +29,45 @@
         (cons mission missions))))
 
 (define (cannot-take object) ; TODO tell why
-  (display (string-append "You cannot pick up the " object ".\n")))
+  (display "You cannot pick that up.\n"))
 
+
+(define (look-enumerate unknown-contents line-three)
+  (match (length unknown-contents)
+    [0 line-three]
+    [1 (string-append line-three (car unknown-contents) ".")]
+    [_ (look-enumerate (cdr unknown-contents) (string-append line-three (car unknown-contents) ", "))]))
+
+(define (look-known-contents location contents unknown-contents line-two)
+  (if (empty? contents)
+      (look-enumerate unknown-contents (string-append line-two "Also in this room: "))
+      (match (list location (car contents))
+        [(list 'office-right-0 "banana") (look-known-contents location (cdr contents) unknown-contents (string-append line-two "There is no one here now, but someone must have been recently because they left a banana on a desk. "))]
+        [(list 'cafe "coffee")           (look-known-contents location (cdr contents) unknown-contents (string-append line-two "There is a cup of coffee on the counter. "))]
+        [_ (look-known-contents location (cdr contents) (cons (car contents) unknown-contents) line-two)])))
 
 (define (look game)
-  (begin
-    (display (dict-ref (game-state-room-descriptions game) (game-state-location game)))
+  (let* ([location (game-state-location game)]
+         [line-one
+          (match location
+            ['outside "You are in the plaza outside a large but secluded office building. There is a door to go inside, and an alley heading to the car park. "]
+            ['car-park "The employees' car park is packed. Some cars look very expensive. "]
+            ['reception "You are in the reception area of the office. To your left and right are barriers which require a card to access. Behind you are doors leading outside. In front of you is a reception desk. "]
+
+            ['stair-right-0 "A bland-looking staircase, with stairs going up. In front of you is a door to the ground level office. "]
+            ['stair-right-1 "A bland-looking staircase, with stairs going up and down. In front of you is the level 1 workspace. Behind you are the barriers to reception. "]
+            ['stair-right-2 "A bland-looking staircase, with stairs going down. In front of you is a door to the level 2 workspace. "]
+            ['office-right-0 "You are in the smallest office you could imagine in such a large building. It's tight and has no windows. You have the staircase behind you and an obscure door with a fingerprint sacnner to your right. "]
+            ['office-right-1 "You are on the level 1 workspace which is vast and full of people at work. You have the staircase behind you and an obscure door with a fingerprint sacnner to your right. "]
+
+            [_ "You are in a totally empty room. This is likely because the game creator misplaced a door or made a typo or something. You shouldn't be here."])]
+
+         [line-two (look-known-contents location (set->list (dict-ref (game-state-room-contents game) location '())) '() "")])
+    (display line-one)
+    (display line-two)
     game))
+ 
+      
 
 (define (go game door)
   ; TODO
@@ -98,17 +130,22 @@
             game
             (main-loop game)))))
 
+(define gamee (game-state
+;(main-loop (game-state
+            '() ; inventory
+            (hash 'office-right-0 (set "banana")) ; room contents
 
-(main-loop '())
+            ; doors
+            (hash 'outside (hash "door" 'reception "alley" 'car-park)
+                  'reception (hash "right" 'stair-right-0))
 
-;(define (process-input)
-;  (let ([input (read-line)])
-;    (if (string? input)
-;      (if (string=? "exit" (string-downcase input))
-;         (check-exit)
-;         (begin
-;          (dispatch-command (string-split (string-downcase input)))
-;          (newline)
-;          (process-input)))
-;      (check-exit))))
+            'office-right-0 ; starting location
+            '() ; no special state to begin with
+            ))
+
+; (struct game-state (inventory room-contents room-descriptions room-doors location missions))
+
+(look gamee)
+
+
 
