@@ -21,7 +21,9 @@
       (begin
         (display " *** Mission achieved ***\n ")
         (display (match mission
-                   ['creator "Use the creator's name to gain access to the office"]
+                   ['creator "Use the creator's name to gain access to the office building"]
+                   ['coffee "Help an overworked employee wake up"]
+                   ['janitor "Clean up somebody else's mess"]
                    [_ "<error>"]))
         (display "\n [")
         (display (+ 1 (length missions)))
@@ -69,9 +71,19 @@
  
       
 
-(define (go game door)
-  ; TODO
-  game)
+(define (go game where)
+  
+  (match (list (game-state-location game) where)
+    [(list 'outside (regexp #rx"door|in|inside")) "outside go in"]
+    [(list 'outside "alley") "outside go park"]
+    
+    [(list 'car-park "alley") "park go front"]
+    
+    [(list 'reception (regexp #rx"door|back")) "reception go back"]
+    [(list 'reception "left") "reception go left"]
+    [(list 'reception "right") "reception go right"]
+    
+    [(list 'car-park "alley") "park go front"]))
 
 (define (take game object)
   (let ([updated-room-contents (room-remove (game-state-room-contents game) (game-state-location game) object)])
@@ -139,13 +151,33 @@
             (hash 'outside (hash "door" 'reception "alley" 'car-park)
                   'reception (hash "right" 'stair-right-0))
 
-            'office-right-0 ; starting location
+            'outside ; starting location
             '() ; no special state to begin with
             ))
 
 ; (struct game-state (inventory room-contents room-descriptions room-doors location missions))
 
-(look gamee)
+;(look gamee)
+
+(define (see-what-happens-2 m n)
+  (if (= 1000 n)
+      (begin
+        (display m)
+        (newline)
+        (see-what-happens (+ 1 m)))
+      (see-what-happens-2 m (+ 1 n))))
+  
+(define (see-what-happens m)
+  (see-what-happens-2 m 0))
+
+; (see-what-happens 0)
+
+
+(go gamee "door")
+(go gamee "alley")
+(go gamee "inside")
+(go gamee "in")
+(go gamee "ahead")
 
 
 
