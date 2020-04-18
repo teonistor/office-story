@@ -1,6 +1,6 @@
 #lang racket
 
-(struct game-state (inventory room-contents room-doors location misc))
+(struct game-state (inventory room-contents location misc))
 ;(struct room (description doors fixed-objects))
 
 (define (inventory-remove inventory object)
@@ -15,20 +15,21 @@
     (and (set-member? given-room-contents object)
          (dict-set room-contents room (set-remove given-room-contents object)))))
 
-(define (achieve-mission missions mission)
-  (if (member mission missions)
-      missions
-      (begin
-        (display " *** Mission achieved ***\n ")
-        (display (match mission
+(define (achieve-achievement game achievement) ; TODO use misc
+  (let ([achievements (dict-ref (game-state-misc game) 'achievements '())])
+    (if (member achievement achievements)
+        game
+        (begin
+          (display " *** Achievement unlocked ***\n *** ")
+          (display (match achievement
                    ['creator "Use the creator's name to gain access to the office building"]
                    ['coffee "Help an overworked employee wake up"]
                    ['janitor "Clean up somebody else's mess"]
                    [_ "<error>"]))
-        (display "\n [")
-        (display (+ 1 (length missions)))
-        (display "/3]\n")
-        (cons mission missions))))
+          (display "\n *** [")
+          (display (+ 1 (length achievements)))
+          (display "/3] ***\n")
+          (struct-copy game-state game [misc (dict-set (game-state-misc game) 'achievements (cons achievement achievements))])))))
 
 (define (cannot-take object) ; TODO tell why
   (display "You cannot pick that up.\n"))
@@ -67,6 +68,7 @@
          [line-two (look-known-contents location (set->list (dict-ref (game-state-room-contents game) location '())) '() "")])
     (display line-one)
     (display line-two)
+    (newline)
     game))
  
       
@@ -96,10 +98,49 @@
           (cannot-take object)
           game))))
 
-(define (talk game person)
-  ; TODO
-  game)
+(define (safe-input)
+  (let ([input (read-line)])
+    (and (string? input) (string-downcase input))))
 
+(define (talk-to-lady game n)
+ (if (zero? (dict-ref (game-state-misc game) 'lady-status 0))
+  (match n
+    [0 (begin (display "You approach the reception desk and the lady looks up at you.\nYou: Good morning!\nLady: Hello, how can I help you?\nYou: I am... ")
+              (talk-to-lady game 1))]
+    [1 (begin (display "(cleaner/visitor/employee) ")(match (safe-input)
+         ["cleaner" (begin (display "You: I am the new cleaner supposed to start today, but they haven't given me a badge yet. Could you let me in and point me where to go?\nLady: Sure. What's your name?\nYou: ") (talk-to-lady game 12))]
+         ["visitor" (begin (display "You: I'm visiting somebody for a business meeting.\nLady: Excellent! Could you give your name, sir?\nYou: ") (talk-to-lady game 22))]
+         ["employee"(begin (display "You: I work here but I... uh... forgot my badge today.\nLady: Oh, that's a shame. Can I have your name?\nYou: ") (talk-to-lady game 32))]
+         [_ (talk-to-lady game 1)]))]
+    [12 (begin (read-line)
+               (display "Lady: Great. Head over to your left and downstairs and you'll find everything you need.\nAs the left barrier opens, the telephone rings and the lady picks it up.\n")
+               (struct-copy game-state game [misc (dict-set (game-state-misc game) 'lady-status 1)]))]
+    [22 (begin (read-line)
+               (display "Lady: Great. And who are you visiting?\nYou: ")
+               (talk-to-lady game 23))]
+    [23 (match (safe-input)
+          ["teo nistor" (begin (display "Lady: Good. I'll open the barriers on your right for you. Head through there and you will probably find him upstairs.\n")
+                               (achieve-achievement (struct-copy game-state game [misc (dict-set (game-state-misc game) 'lady-status 2)]) 'creator))]
+          [_ (begin (display "The lady fiddles on her computer for a while.\nLady: Sorry, it looks like no one with that name works here.\n")(talk-to-lady game 1))])]
+    [32 (match (safe-input)
+          ["teo nistor" (begin (display "Lady: Great! Here, I'll give you this temporary badge. Don't forget to return it at the end of the day.\n")
+                               (achieve-achievement (struct-copy game-state game [misc (dict-set (game-state-misc game) 'lady-status 3)]) 'creator))]
+          [_ (begin (display "The lady fiddles on her computer for a long time.\nLady: Sorry, I can't find your name in the system.\n")(talk-to-lady game 1))])])
+  (begin
+    (display "The lady doesn't pay you any attention.\n")
+    game)))
+          
+        
+
+(define (talk game person)
+  (match (list (game-state-location game) person)
+    [(list 'reception "lady") (talk-to-lady game 0)]
+; TODO employee?
+
+    [_ (begin (display "You open your mouth to say something, but no words come to mind.")
+              game)]))
+
+     
 (define (give game person object)
   ; TODO
   game)
@@ -148,36 +189,19 @@
             (hash 'office-right-0 (set "banana")) ; room contents
 
             ; doors
-            (hash 'outside (hash "door" 'reception "alley" 'car-park)
-                  'reception (hash "right" 'stair-right-0))
+            ;(hash 'outside (hash "door" 'reception "alley" 'car-park)
+             ;     'reception (hash "right" 'stair-right-0))
 
-            'outside ; starting location
-            '() ; no special state to begin with
+            'reception ; starting location
+            (hash) ; no special state to begin with
             ))
 
 ; (struct game-state (inventory room-contents room-descriptions room-doors location missions))
 
 ;(look gamee)
 
-(define (see-what-happens-2 m n)
-  (if (= 1000 n)
-      (begin
-        (display m)
-        (newline)
-        (see-what-happens (+ 1 m)))
-      (see-what-happens-2 m (+ 1 n))))
-  
-(define (see-what-happens m)
-  (see-what-happens-2 m 0))
-
-; (see-what-happens 0)
-
-
-(go gamee "door")
-(go gamee "alley")
-(go gamee "inside")
-(go gamee "in")
-(go gamee "ahead")
+(let ([gameee (talk gamee "lady")])
+  (game-state-misc gameee))
 
 
 
