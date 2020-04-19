@@ -168,7 +168,9 @@
 
 (define (safe-input)
   (let ([input (read-line)])
-    (and (string? input) (string-downcase input))))
+    (match input
+      [(regexp #px"\\S.+\\S|\\S{1,2}" (list x)) (string-downcase x)]
+      [_ #f])))
 
 (define (talk-to-lady game n)
  (if (zero? (dict-ref (game-state-misc game) 'lady-status 0))
@@ -277,8 +279,8 @@
 (define (check-exit)
   (begin
     (display "Really exit? (y/n) ")
-    (let ([input (read-line)])
-      (or (not (string? input)) (string=? "y" (string-downcase input))))))
+    (let ([input (safe-input)])
+      (or (not input) (string=? "y" (string-downcase input))))))
 
 (define (parse-input input)
   (match input
@@ -293,26 +295,17 @@
     [_ bad-input]))
 
 (define (main-loop game)
-  (let* ([input (read-line)]
-         [action (and (string? input) (parse-input input))])
+  (display " > ")
+  (let* ([input (safe-input)]
+         [action (and input (parse-input input))])
     (if action
         (main-loop (action game))
         (if (check-exit)
             game
             (main-loop game)))))
 
+
 (define (entry-point)
-
-;[ "exit" #f]
- ;   [ "look" look]
-  ;  [ "inventory" inventory]
-   ; [(regexp #rx"^go( to| through| via|)( the)? (.+)$" (list _ _ _ where)) (λ (game) (go game where))]
-;    [(regexp #rx"^(take|pick up)( the)? (.+)$" (list _ _ _ what))          (λ (game) (take game what))]
- ;   [(regexp #rx"^talk( to the| to|) (.+)$" (list _ _ who))                (λ (game) (talk game who))]
-  ;  [(regexp #rx"^give( the)? (.+) to( the)? (.+)$" (list _ _ what _ who)) (λ (game) (give game who what))]
-   ; [(regexp #rx"^give( the)? (.+)( the)? (.+)$" (list _ _ who _ what))    (λ (game) (give game who what))]
-
-  
   (display "Commands to navigate the game:\n")
   (display " - look\n")
   (display " - inventory\n")
@@ -342,15 +335,5 @@
 
             ; no special state to begin with
             (hash)))))
-
-; (struct game-state (inventory room-contents room-descriptions room-doors location missions))
-
-;(let ([gameee (mission-accomplished gamee)])
-;  (display (game-state-misc gameee))
-;  (game-state-inventory gameee))
-
-;(inventory-contains gamee "a")
-
-; TODO (define (entry-point)
 
 (entry-point)
