@@ -192,7 +192,7 @@
           [_ (begin (display "The lady fiddles on her computer for a while.\nLady: Sorry, it looks like no one with that name works here.\n")(talk-to-lady game 1))])]
     [32 (match (safe-input)
           ["teo nistor" (begin (display "Lady: Great! Here, I'll give you this temporary badge. Don't forget to return it at the end of the day.\n")
-                               (achieve-achievement (struct-copy game-state game [misc (dict-set (game-state-misc game) 'lady-status 3)]) 'creator))]
+                               (achieve-achievement (struct-copy game-state game [misc (dict-set (game-state-misc game) 'lady-status 3)][inventory (set-add (game-state-inventory game) "badge")]) 'creator))]
           [_ (begin (display "The lady fiddles on her computer for a long time.\nLady: Sorry, I can't find your name in the system.\n")(talk-to-lady game 1))])])
   (begin
     (display "The lady doesn't pay you any attention.\n")
@@ -301,25 +301,46 @@
             game
             (main-loop game)))))
 
-;(define gamee (game-state
-(main-loop (game-state
-            '() ; inventory
+(define (entry-point)
+
+;[ "exit" #f]
+ ;   [ "look" look]
+  ;  [ "inventory" inventory]
+   ; [(regexp #rx"^go( to| through| via|)( the)? (.+)$" (list _ _ _ where)) (λ (game) (go game where))]
+;    [(regexp #rx"^(take|pick up)( the)? (.+)$" (list _ _ _ what))          (λ (game) (take game what))]
+ ;   [(regexp #rx"^talk( to the| to|) (.+)$" (list _ _ who))                (λ (game) (talk game who))]
+  ;  [(regexp #rx"^give( the)? (.+) to( the)? (.+)$" (list _ _ what _ who)) (λ (game) (give game who what))]
+   ; [(regexp #rx"^give( the)? (.+)( the)? (.+)$" (list _ _ who _ what))    (λ (game) (give game who what))]
+
+  
+  (display "Commands to navigate the game:\n")
+  (display " - look\n")
+  (display " - inventory\n")
+  (display " - go <forward/back/up/left/...>\n")
+  (display " - take <object>\n")
+  (display " - talk to <person>\n")
+  (display " - give <object> to <person>\n\n")
+  (display " *** Your mission ***\n")
+  (display "You have been sent to a competitor company's offices to uncover some secret files. You must infiltrate the building and find the files which are kept off-grid by the executive director.\n\n")
+
+  (main-loop (look (game-state
+                   
+            ; inventory
+            '()
 
             ; room contents
             (hash 'office-right-0 (set "banana")
                   'office-right-2 (set "notebook" "candy wrapper")
-                  'office-left-1 (set "pencil" 'mess)
-                  'office-left-2 (set "hard drive" "folder" "charger")
-                  'broom-closet (set "broom")
-                  'restroom (set "key"))
+                  'office-left-1  (set "pencil" 'mess)
+                  'office-left-2  (set "hard drive" "folder" "charger")
+                  'broom-closet   (set "broom")
+                  'restroom       (set "key"))
 
-            ; doors
-            ;(hash 'outside (hash "door" 'reception "alley" 'car-park)
-             ;     'reception (hash "right" 'stair-right-0))
+            ; starting location
+            'car-park
 
-            'car-park ; starting location
-            (hash) ; no special state to begin with
-            ))
+            ; no special state to begin with
+            (hash)))))
 
 ; (struct game-state (inventory room-contents room-descriptions room-doors location missions))
 
@@ -331,3 +352,4 @@
 
 ; TODO (define (entry-point)
 
+(entry-point)
