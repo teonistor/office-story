@@ -66,8 +66,8 @@
          [line-one
           (match location
             ['outside "You are in the plaza outside a large but secluded office building. There is a door to go inside, and an alley heading to the car park. "]
-            ['car-park "The employees' car park is packed. Some cars look very expensive. "]
-            ['reception "You are in the reception area of the office. To your left and right are barriers which require a card to access. Behind you are doors leading outside. In front of you is a reception desk. "]
+            ['car-park "The employees' car park is packed. Some cars look very expensive. There is an alley going forward to the building. "]
+            ['reception "You are in the reception area of the office. To your left and right are barriers which require a card to access. Behind you are doors leading outside. In front of you is a reception desk with a lady seating behind it. "]
 
             ['stair-right-0 "A bland-looking staircase, with stairs going up. In front of you is a door to the ground level office. "]
             ['stair-right-1 "A bland-looking staircase, with stairs going up and down. In front of you is the level 1 workspace. Behind you are the barriers to reception. "]
@@ -93,20 +93,67 @@
     (newline)
     game))
 
+(define (inventory-contains game what)
+  (member what (game-state-inventory game)))
+
+(define (go-specific game where)
+  (look (struct-copy game-state game [location where])))
 
 (define (go game where)
-  
   (match (list (game-state-location game) where)
-    [(list 'outside (regexp #rx"door|in|inside")) "outside go in"]
-    [(list 'outside "alley") "outside go park"]
+    [(list 'outside (regexp #rx"door|in|inside|forward")) (go-specific game 'reception)]
+    [(list 'outside "alley") (go-specific game 'car-park)]
     
-    [(list 'car-park "alley") "park go front"]
+    [(list 'car-park (regexp #rx"alley|forward")) (go-specific game 'outside)]
     
-    [(list 'reception (regexp #rx"door|back")) "reception go back"]
-    [(list 'reception "left") "reception go left"]
-    [(list 'reception "right") "reception go right"]
-    
-    [(list 'car-park "alley") "park go front"]))
+    [(list 'reception (regexp #rx"door|back")) (go-specific game 'outside)]
+    [(list 'reception "left") (if (or (= 1 (dict-ref (game-state-misc game) 'lady-status 0))(inventory-contains game "badge"))
+                                  (go-specific game 'stair-left-1)
+                                  (begin (display "The barriers are shut so you cannot go through.\n") game))]
+    [(list 'reception "right") (if (or (= 2 (dict-ref (game-state-misc game) 'lady-status 0))(inventory-contains game "badge"))
+                                   (go-specific game 'stair-right-1)
+                                   (begin (display "The barriers are shut so you cannot go through.\n") game))]
+
+    [(list 'stair-right-0 (regexp #rx"door|office")) (go-specific game 'office-right-0)]
+    [(list 'stair-right-0 "up") (go-specific game 'stair-right-1)]
+    [(list 'stair-right-1 (regexp #rx"forward|workspace")) (go-specific game 'office-right-1)]
+    [(list 'stair-right-1 "down") (go-specific game 'stair-right-0)]
+    [(list 'stair-right-1 "up") (go-specific game 'stair-right-2)]
+    [(list 'stair-right-1 "back") (go-specific game 'reception)]
+    [(list 'stair-right-2 (regexp #rx"forward|workspace|door")) (go-specific game 'office-right-2)]
+    [(list 'stair-right-2 "down") (go-specific game 'stair-right-1)]
+
+    [(list 'office-right-0 "back") (go-specific game 'stair-right-0)]
+    [(list 'office-right-0 (regexp #rx"right|door")) (begin (display "You touch your finger on the fingerprint scanner but it denies access.\n") game)]
+    [(list 'office-right-1 "back") (go-specific game 'stair-right-1)]
+    [(list 'office-right-1 (regexp #rx"forward|cafe")) (go-specific game 'cafe)]
+    [(list 'office-right-2 "back") (go-specific game 'stair-right-2)]
+    [(list 'office-right-2 (regexp #rx"forward|door")) (go-specific game 'restroom)]
+
+    [(list 'cafe (regexp #rx"back|workspace")) (go-specific game 'office-right-1)]
+    [(list 'restroom (regexp #rx"back|workspace")) (go-specific game 'office-right-2)]
+
+    [(list 'stair-left-0 "door") (go-specific game 'broom-closet)]
+    [(list 'stair-left-0 "up") (go-specific game 'stair-left-1)]
+    [(list 'stair-left-1 (regexp #rx"forward|door")) (go-specific game 'office-left-1)]
+    [(list 'stair-left-1 "down") (go-specific game 'stair-left-0)]
+    [(list 'stair-left-1 "up") (go-specific game 'stair-left-2)]
+    [(list 'stair-left-1 "back") (go-specific game 'reception)]
+    [(list 'stair-left-2 "down") (go-specific game 'stair-left-1)]
+    [(list 'stair-left-2 (regexp #rx"forward|door")) (if (inventory-contains game "key")
+                                                         (go-specific game 'office-left-2)
+                                                         (begin (display "The door is locked.\n") game))]
+
+    [(list 'broom-closet "back") (go-specific game 'stair-left-0)]
+    [(list 'office-left-1 "back") (go-specific game 'stair-left-1)]
+    [(list 'office-left-2 "back") (go-specific game 'stair-left-2)]
+
+    [_ (begin (display "You cannot go that way.\n") game)]))
+
+(define (take-special game object)
+  (match object
+    ["hard drive" (mission-accomplished game)]
+    [_ game]))
 
 (define (take game object)
   (let ([updated-room-contents (room-remove (game-state-room-contents game) (game-state-location game) object)])
@@ -114,7 +161,7 @@
         (begin
           (display (string-append "You pick up the " object ".\n"))
           (let ([updated-inventory (set-add (game-state-inventory game) object)])
-            (struct-copy game-state game [inventory updated-inventory][room-contents updated-room-contents])))
+            (take-special (struct-copy game-state game [inventory updated-inventory][room-contents updated-room-contents]) object)))
         (begin
           (cannot-take object)
           game))))
@@ -135,17 +182,16 @@
          [_ (talk-to-lady game 1)]))]
     [12 (begin (read-line)
                (display "Lady: Great. Head over to your left and downstairs and you'll find everything you need.\nAs the left barrier opens, the telephone rings and the lady picks it up.\n")
-               (struct-copy game-state game [misc (dict-set (game-state-misc game) 'lady-status 1)]))]
+               (struct-copy game-state game [misc (dict-set (game-state-misc game) 'lady-status 1)][room-contents (room-add (game-state-room-contents game) 'broom-closet "badge")]))]
     [22 (begin (read-line)
                (display "Lady: Great. And who are you visiting?\nYou: ")
                (talk-to-lady game 23))]
     [23 (match (safe-input)
           ["teo nistor" (begin (display "Lady: Good. I'll open the barriers on your right for you. Head through there and you will probably find him upstairs.\n")
-                               (achieve-achievement (struct-copy game-state game [misc (dict-set (game-state-misc game) 'lady-status 2)]) 'creator))]
+                               (achieve-achievement (struct-copy game-state game [misc (dict-set (game-state-misc game) 'lady-status 2)][room-contents (room-add (game-state-room-contents game) 'office-right-2 "badge")]) 'creator))]
           [_ (begin (display "The lady fiddles on her computer for a while.\nLady: Sorry, it looks like no one with that name works here.\n")(talk-to-lady game 1))])]
     [32 (match (safe-input)
           ["teo nistor" (begin (display "Lady: Great! Here, I'll give you this temporary badge. Don't forget to return it at the end of the day.\n")
-                               ; TODO use room-add to spawn the badge
                                (achieve-achievement (struct-copy game-state game [misc (dict-set (game-state-misc game) 'lady-status 3)]) 'creator))]
           [_ (begin (display "The lady fiddles on her computer for a long time.\nLady: Sorry, I can't find your name in the system.\n")(talk-to-lady game 1))])])
   (begin
@@ -160,19 +206,27 @@
           (if (set-member? (game-state-inventory game) "broom")
               (begin (display "You: Here, I'll give you a hand.\nYou use the broom you picked up to swiftly swipe the mess into bin bags.\n")
                      (achieve-achievement (struct-copy game-state game [room-contents updated-room-contents]) 'janitor))
-              (begin (display "You: Well, I wish I could help you.")
+              (begin (display "You: Well, I wish I could help you.\n")
                      game)))
         (begin
-          (display "You open your mouth to say something, but no words come to mind.")
+          (display "You open your mouth to say something, but no words come to mind.\n")
           game))))
+
+(define (talk-to-barista game)
+  (if (zero? (dict-ref (game-state-misc game) 'barista-status 0))
+      (begin (display "Barista: Morning! What can I get for you today, sir?\nYou: A large coffee with no sugar, please.\nYou swipe your card and the barista places the large cup on the table.\n")
+             (struct-copy game-state game [room-contents (room-add (game-state-room-contents game) 'cafe "coffee")][misc (dict-set (game-state-misc game) 'barista-status 1)]))
+      (begin (display "The barista is busy cleaning the machines.\n")
+             game)))
 
 (define (talk game person)
   (match (list (game-state-location game) person)
     [(list 'reception "lady") (talk-to-lady game 0)]
     [(list 'office-left-1 "cleaner") (talk-to-cleaner game)]
+    [(list 'cafe "barista") (talk-to-barista game)]
 ; TODO employee?
 
-    [_ (begin (display "You open your mouth to say something, but no words come to mind.")
+    [_ (begin (display "You open your mouth to say something, but no words come to mind.\n")
               game)]))
 
 (define (inventory-loop inventory-list)
@@ -217,14 +271,8 @@
 
 (define (bad-input game)
   (begin
-    (display "You don't quite know ow to do that.")
+    (display "You don't quite know how to do that.\n")
     game))
-
-;(game-state-inventory (take (game-state '() (hash "rec" (set "chair" "desk")) "rec" '()) "chair"))
-;(game-state-inventory (take (game-state '() (hash "rec" (set "chair" "desk")) "rec" '()) "desk"))
-;(game-state-inventory (take (game-state '() (hash "rec" (set "chair" "desk")) "rec" '()) "hat"))
-;(game-state-inventory (take (game-state '() (hash "rec" (set "chair" "desk")) "else" '()) "chair"))
-
 
 (define (check-exit)
   (begin
@@ -253,8 +301,8 @@
             game
             (main-loop game)))))
 
-(define gamee (game-state
-;(main-loop (game-state
+;(define gamee (game-state
+(main-loop (game-state
             '() ; inventory
 
             ; room contents
@@ -262,14 +310,15 @@
                   'office-right-2 (set "notebook" "candy wrapper")
                   'office-left-1 (set "pencil" 'mess)
                   'office-left-2 (set "hard drive" "folder" "charger")
-                  'broom-closet (set "broom"))
+                  'broom-closet (set "broom")
+                  'restroom (set "key"))
 
             ; doors
             ;(hash 'outside (hash "door" 'reception "alley" 'car-park)
              ;     'reception (hash "right" 'stair-right-0))
 
-            'office-right-2 ; starting location
-            (hash 'mission #t) ; no special state to begin with
+            'car-park ; starting location
+            (hash) ; no special state to begin with
             ))
 
 ; (struct game-state (inventory room-contents room-descriptions room-doors location missions))
@@ -278,7 +327,7 @@
 ;  (display (game-state-misc gameee))
 ;  (game-state-inventory gameee))
 
-(inventory gamee)
+;(inventory-contains gamee "a")
 
 ; TODO (define (entry-point)
 
