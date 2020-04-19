@@ -319,7 +319,8 @@
   (display " - go <forward/back/up/left/...>\n")
   (display " - take <object>\n")
   (display " - talk to <person>\n")
-  (display " - give <object> to <person>\n\n")
+  (display " - give <object> to <person>\n")
+  (display " - exit\n")
   (display " *** Your mission ***\n")
   (display "You have been sent to a competitor company's offices to uncover some secret files. You must infiltrate the building and find the files which are kept off-grid by the executive director.\n\n")
 
