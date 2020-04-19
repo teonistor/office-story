@@ -147,26 +147,55 @@
           [_ (begin (display "The lady fiddles on her computer for a while.\nLady: Sorry, it looks like no one with that name works here.\n")(talk-to-lady game 1))])]
     [32 (match (safe-input)
           ["teo nistor" (begin (display "Lady: Great! Here, I'll give you this temporary badge. Don't forget to return it at the end of the day.\n")
+                               ; TODO use room-add to spawn the badge
                                (achieve-achievement (struct-copy game-state game [misc (dict-set (game-state-misc game) 'lady-status 3)]) 'creator))]
           [_ (begin (display "The lady fiddles on her computer for a long time.\nLady: Sorry, I can't find your name in the system.\n")(talk-to-lady game 1))])])
   (begin
     (display "The lady doesn't pay you any attention.\n")
     game)))
           
-        
+(define (talk-to-cleaner game)
+  (let ([updated-room-contents (room-remove (game-state-room-contents game) (game-state-location game) 'mess)])
+    (if updated-room-contents
+        (begin
+          (display "You: Need some help there, pal?\nCleaner: I bloody well need some help! These bored salarymen threw a big one in here last night... that's all they ever did in this room since it was refurbished!\n")
+          (if (set-member? (game-state-inventory game) "broom")
+              (begin (display "You: Here, I'll give you a hand.\nYou use the broom you picked up to swiftly swipe the mess into bin bags.\n")
+                     (achieve-achievement (struct-copy game-state game [room-contents updated-room-contents]) 'janitor))
+              (begin (display "You: Well, I wish I could help you.")
+                     game)))
+        (begin
+          (display "You open your mouth to say something, but no words come to mind.")
+          game))))
 
 (define (talk game person)
   (match (list (game-state-location game) person)
     [(list 'reception "lady") (talk-to-lady game 0)]
+    [(list 'office-left-1 "cleaner") (talk-to-cleaner game)]
 ; TODO employee?
 
     [_ (begin (display "You open your mouth to say something, but no words come to mind.")
               game)]))
 
-     
-(define (give game person object)
+(define (give-employee-coffee game)
   ; TODO
   game)
+     
+(define (give game person object)
+  (let* ([updated-inventory (inventory-remove (game-state-inventory game) object)]
+         [updated-game (and updated-inventory
+                            (match (list (game-state-location game) person object)
+                              [(list 'office-left-1 "cleaner" "broom")
+                                 (let ([updated-room-contents (room-remove (game-state-room-contents game) 'office-left-1 'mess)])
+                                   (and updated-room-contents
+                                        (begin (display "You: I think you'd be better of using this, pal.\nYou give the broom to the cleaner.\nCleaner: Jee, thanks!\n")
+                                               (struct-copy game-state game [inventory updated-inventory] [room-contents updated-room-contents]))))]
+                              [(list 'office-right-2 "employee" "coffee")(begin (display "You give the coffee to the tired employee.\nYou: You should go home if you're too tired.\nEmployee: Thanks, man! I really need to focus on this message spec.\nHe scratches his head, looking at some notes for a bit, then his head drops back on the desk.\n")
+                                                                                (achieve-achievement (struct-copy game-state game [inventory updated-inventory]) 'coffee))]
+                              [_ #f]))])
+    (or updated-game
+        (begin (display "You try to do that, but you fumble.\n")
+               game))))
 
 
 (define (bad-input game)
@@ -208,7 +237,7 @@
 
 (define gamee (game-state
 ;(main-loop (game-state
-            '() ; inventory
+            '("broom") ; inventory
 
             ; room contents
             (hash 'office-right-0 (set "banana")
@@ -221,13 +250,15 @@
             ;(hash 'outside (hash "door" 'reception "alley" 'car-park)
              ;     'reception (hash "right" 'stair-right-0))
 
-            'cafe ; starting location
+            'office-left-1 ; starting location
             (hash) ; no special state to begin with
             ))
 
 ; (struct game-state (inventory room-contents room-descriptions room-doors location missions))
 
-(look gamee)
+(let ([gameee (give gamee "cleaner" "broom")])
+  (game-state-room-contents gameee)
+  (game-state-inventory gameee))
 
 
 ; TODO (define (entry-point)
