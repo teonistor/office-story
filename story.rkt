@@ -43,10 +43,23 @@
 
 (define (look-known-contents location contents unknown-contents line-two)
   (if (empty? contents)
-      (look-enumerate unknown-contents (string-append line-two "Also in this room: "))
+      (if (empty? unknown-contents)
+          line-two
+          (look-enumerate unknown-contents (string-append line-two "Also in this room: ")))
       (match (list location (car contents))
-        [(list 'office-right-0 "banana") (look-known-contents location (cdr contents) unknown-contents (string-append line-two "There is no one here now, but someone must have been recently because they left a banana on a desk. "))]
-        [(list 'cafe "coffee")           (look-known-contents location (cdr contents) unknown-contents (string-append line-two "There is a cup of coffee on the counter. "))]
+        [(list 'office-right-0 "banana")       (look-known-contents location (cdr contents) unknown-contents (string-append line-two "There is no one here now, but someone must have been recently because they left a banana on a desk. "))]
+        [(list 'office-right-2 "notebook")     (look-known-contents location (cdr contents) unknown-contents (string-append line-two "One employee left an open notebook on his desk. "))]
+        [(list 'office-right-2 "badge")        (look-known-contents location (cdr contents) unknown-contents (string-append line-two "Another, his badge. "))]
+        [(list 'office-right-2 "candy wrapper")(look-known-contents location (cdr contents) unknown-contents (string-append line-two "Another, a candy wrapper. "))]
+
+        [(list 'cafe "coffee")  (look-known-contents location (cdr contents) unknown-contents (string-append line-two "There is a cup of coffee on the counter. "))]
+        [(list 'restroom "key") (look-known-contents location (cdr contents) unknown-contents (string-append line-two "Looking around, you notice a key somebody must have dropped in one of the stalls. "))]
+
+        [(list 'office-left-1 'mess)       (look-known-contents location (cdr contents) unknown-contents (string-append line-two "There is a huge mess of plastic cups, bottles, and bits of paper in the middle of the floor, which the poor cleaner is struggling to pick up one by one. "))]
+        [(list 'office-left-2 "hard drive")(look-known-contents location (cdr contents) unknown-contents (string-append line-two "A hard drive sits in a tray on the desk. "))]
+        [(list 'broom-closet "broom")      (look-known-contents location (cdr contents) unknown-contents (string-append line-two "A broom is leaning against the corner amongst other things. "))]
+        [(list 'broom-closet "badge")      (look-known-contents location (cdr contents) unknown-contents (string-append line-two "A badge is hanging from a hook in the wall. "))]
+
         [_ (look-known-contents location (cdr contents) (cons (car contents) unknown-contents) line-two)])))
 
 (define (look game)
@@ -61,8 +74,18 @@
             ['stair-right-1 "A bland-looking staircase, with stairs going up and down. In front of you is the level 1 workspace. Behind you are the barriers to reception. "]
             ['stair-right-2 "A bland-looking staircase, with stairs going down. In front of you is a door to the level 2 workspace. "]
             ['office-right-0 "You are in the smallest office you could imagine in such a large building. It's tight and has no windows. You have the staircase behind you and an obscure door with a fingerprint sacnner to your right. "]
-            ['office-right-1 "You are on the level 1 workspace which is vast and full of people at work. You have the staircase behind you and an obscure door with a fingerprint sacnner to your right. "]
+            ['office-right-1 "You are on the level 1 workspace which is vast and full of people at work. You have the staircase behind you. All the way across the floor is the office cafe. "]
+            ['office-right-2 "You are on the level 2 workspace which is as vast as the one below but pretty deserted. The staircase is behind you and a door to the restrooms is in front. One employee is sitting with his head on the desk, perhaps asleep or at any rate very tired. Everybody else seems to have left in a hurry. "]
+            ['cafe "Some music is playing softly in the cafe and a few groups of people are sat at tables, chatting. The noise from the workspace behind you is inaudible. A barista is rummaging behind the counter. "]
+            ['restroom "The restroom looks very standard and smells slightly above average. "]
 
+            ['stair-left-0 "A colorful staircase, with stairs going up. In front of you are numerous locked doors, the only unlocked one being the broom closet. "]
+            ['stair-left-1 "A colorful staircase, with stairs going up and down. In front of you is a fancy door, ajar, with a sign reading 'Ideation Hub'. Behind you are the barriers to reception. "]
+            ['stair-left-2 "A colorful staircase, with stairs going down. In front of you is a door with a sign reading 'Execdir'. "]
+            ['office-left-1 "The so-called Ideation Hub you find yourself in consists of a whole disarray of chairs and desks. It looks like someone threw a mad party in here rather than using the place to come up with ideas. "]
+            ['office-left-2 "You find yourself in the Executive Director's office, which is posh and very well lit. You could really use that leather chair for your day-to-day desk work! "]
+            ['broom-closet "There is an array of cleaning substances in the dimly lit broom closet. "]
+            
             [_ "You are in a totally empty room. This is likely because the game creator misplaced a door or made a typo or something. You shouldn't be here."])]
 
          [line-two (look-known-contents location (set->list (dict-ref (game-state-room-contents game) location '())) '() "")])
@@ -186,22 +209,26 @@
 (define gamee (game-state
 ;(main-loop (game-state
             '() ; inventory
-            (hash 'office-right-0 (set "banana")) ; room contents
+
+            ; room contents
+            (hash 'office-right-0 (set "banana")
+                  'office-right-2 (set "notebook" "candy wrapper")
+                  'office-left-1 (set "pencil" 'mess)
+                  'office-left-2 (set "hard drive" "folder" "charger")
+                  'broom-closet (set "broom"))
 
             ; doors
             ;(hash 'outside (hash "door" 'reception "alley" 'car-park)
              ;     'reception (hash "right" 'stair-right-0))
 
-            'reception ; starting location
+            'cafe ; starting location
             (hash) ; no special state to begin with
             ))
 
 ; (struct game-state (inventory room-contents room-descriptions room-doors location missions))
 
-;(look gamee)
-
-(let ([gameee (talk gamee "lady")])
-  (game-state-misc gameee))
+(look gamee)
 
 
+; TODO (define (entry-point)
 
