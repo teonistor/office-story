@@ -1,7 +1,6 @@
 #lang racket
 
 (struct game-state (inventory room-contents location misc))
-;(struct room (description doors fixed-objects))
 
 (define (inventory-remove inventory object)
   (and (set-member? inventory object)
@@ -15,7 +14,7 @@
     (and (set-member? given-room-contents object)
          (dict-set room-contents room (set-remove given-room-contents object)))))
 
-(define (achieve-achievement game achievement) ; TODO use misc
+(define (achieve-achievement game achievement)
   (let ([achievements (dict-ref (game-state-misc game) 'achievements '())])
     (if (member achievement achievements)
         game
@@ -93,8 +92,7 @@
     (display line-two)
     (newline)
     game))
- 
-      
+
 
 (define (go game where)
   
@@ -177,9 +175,28 @@
     [_ (begin (display "You open your mouth to say something, but no words come to mind.")
               game)]))
 
-(define (give-employee-coffee game)
-  ; TODO
+(define (inventory-loop inventory-list)
+  (if (empty? inventory-list)
+      (void)
+      (begin (display ", ")
+             (display (car inventory-list))
+             (inventory-loop (cdr inventory-list)))))
+
+(define (inventory game)
+  (let ([inventory-list (game-state-inventory game)])
+    (if (empty? inventory-list)
+        (display " (nothing)")
+        (begin (display (car inventory-list)) (inventory-loop (cdr inventory-list))))
+    (newline))
   game)
+
+(define (mission-accomplished game)
+  (if (dict-ref (game-state-misc game) 'mission #f)
+      game
+      (begin (display " *** Mission accomplished ***\n *** You found the secret files\n *** Achievements unlocked: ")
+             (display (length (dict-ref (game-state-misc game) 'achievements '())))
+             (display "/3\n")
+             (struct-copy game-state game [misc (dict-set (game-state-misc game) 'mission #t)]))))
      
 (define (give game person object)
   (let* ([updated-inventory (inventory-remove (game-state-inventory game) object)]
@@ -215,10 +232,11 @@
     (let ([input (read-line)])
       (or (not (string? input)) (string=? "y" (string-downcase input))))))
 
-(define (parse-input input) ; TODO
+(define (parse-input input)
   (match input
     [ "exit" #f]
     [ "look" look]
+    [ "inventory" inventory]
     [(regexp #rx"^go( to| through| via|)( the)? (.+)$" (list _ _ _ where)) (λ (game) (go game where))]
     [(regexp #rx"^(take|pick up)( the)? (.+)$" (list _ _ _ what))          (λ (game) (take game what))]
     [(regexp #rx"^talk( to the| to|) (.+)$" (list _ _ who))                (λ (game) (talk game who))]
@@ -237,7 +255,7 @@
 
 (define gamee (game-state
 ;(main-loop (game-state
-            '("broom") ; inventory
+            '() ; inventory
 
             ; room contents
             (hash 'office-right-0 (set "banana")
@@ -250,16 +268,17 @@
             ;(hash 'outside (hash "door" 'reception "alley" 'car-park)
              ;     'reception (hash "right" 'stair-right-0))
 
-            'office-left-1 ; starting location
-            (hash) ; no special state to begin with
+            'office-right-2 ; starting location
+            (hash 'mission #t) ; no special state to begin with
             ))
 
 ; (struct game-state (inventory room-contents room-descriptions room-doors location missions))
 
-(let ([gameee (give gamee "cleaner" "broom")])
-  (game-state-room-contents gameee)
-  (game-state-inventory gameee))
+;(let ([gameee (mission-accomplished gamee)])
+;  (display (game-state-misc gameee))
+;  (game-state-inventory gameee))
 
+(inventory gamee)
 
 ; TODO (define (entry-point)
 
